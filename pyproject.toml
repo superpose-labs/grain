@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools", "grpcio-tools", "pybind11"]
+# grpcio-tools 1.74.0 generates Protobuf 6.31.1 code, which remains compatible
+# with Grain's supported Protobuf >=5.28.3 runtime range.
+requires = ["setuptools", "grpcio-tools==1.74.0", "pybind11"]
 build-backend = "setuptools.build_meta"
 
 [project]
