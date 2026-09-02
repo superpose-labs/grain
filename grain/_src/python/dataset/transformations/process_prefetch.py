@@ -131,6 +131,11 @@ def _clear_queue_and_maybe_unlink_shm(q: queues.Queue[Any]) -> int:
     try:
       shared_memory_array.unlink_shm(q.get_nowait())
       count += 1
+    except FileNotFoundError:
+      # The multiprocessing resource sharer can disappear before a queued
+      # shared-memory descriptor is rebuilt during iterator shutdown. The queue
+      # item has already been consumed and its shared memory is unavailable.
+      continue
     except queue.Empty:
       return count
 
