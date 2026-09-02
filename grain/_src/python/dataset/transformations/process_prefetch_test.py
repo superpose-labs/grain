@@ -16,6 +16,7 @@ from concurrent import futures
 import dataclasses
 import logging as std_logging
 import os
+import queue
 import sys
 import time
 import traceback
@@ -411,6 +412,30 @@ class ProcessPrefetchIterDatasetTest(parameterized.TestCase):
     self.assertEqual(next(ds_iter), 1)
     self.assertEqual(next(ds_iter), 2)
     ds_iter.close()
+
+  def test_queue_cleanup_skips_unavailable_shared_memory_descriptor(self):
+    buffer = mock.Mock()
+    element = object()
+    buffer.get_nowait.side_effect = [
+        FileNotFoundError,
+        element,
+        queue.Empty,
+    ]
+
+    with mock.patch.object(
+        process_prefetch.shared_memory_array, 'unlink_shm'
+    ) as unlink_shm:
+      removed = process_prefetch._clear_queue_and_maybe_unlink_shm(buffer)
+
+    self.assertEqual(removed, 1)
+    unlink_shm.assert_called_once_with(element)
+
+  def test_queue_cleanup_propagates_unexpected_errors(self):
+    buffer = mock.Mock()
+    buffer.get_nowait.side_effect = PermissionError('queue unavailable')
+
+    with self.assertRaisesRegex(PermissionError, 'queue unavailable'):
+      process_prefetch._clear_queue_and_maybe_unlink_shm(buffer)
 
   def test_get_next_index(self):
     ds = process_prefetch.ProcessPrefetchIterDataset(
